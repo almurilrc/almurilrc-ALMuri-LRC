@@ -1,0 +1,1669 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تطبيق حجوزات مركز مصادر التعلم - المطور</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Cairo & Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Firebase Realtime Database Compatibility Libraries -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Cairo', 'sans-serif'],
+                        en: ['Plus Jakarta Sans', 'sans-serif'],
+                    },
+                    colors: {
+                        canva: {
+                            purple: '#7D2AE8',
+                            cyan: '#00C4CC',
+                            pink: '#E33371',
+                            dark: '#0E131F',
+                            slate: '#1E293B',
+                            lightBg: '#F3F4F9',
+                            cardBg: '#FFFFFF',
+                            softCyan: '#E6F9FA',
+                            softPurple: '#F2E8FF',
+                        }
+                    },
+                    boxShadow: {
+                        'canva': '0 10px 30px -5px rgba(125, 42, 232, 0.12), 0 4px 12px -2px rgba(0, 196, 204, 0.08)',
+                        'canva-hover': '0 20px 40px -10px rgba(125, 42, 232, 0.22), 0 8px 20px -4px rgba(0, 196, 204, 0.15)',
+                        'glass': '0 8px 32px 0 rgba(31, 38, 135, 0.07)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: #F3F4F9;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(125, 42, 232, 0.05) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(0, 196, 204, 0.05) 0px, transparent 50%);
+            background-attachment: fixed;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #E2E8F0;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #7D2AE8;
+            border-radius: 20px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #611EC3;
+        }
+
+        .canva-gradient-text {
+            background: linear-gradient(135deg, #7D2AE8 0%, #00C4CC 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .canva-gradient-bg {
+            background: linear-gradient(135deg, #7D2AE8 0%, #00C4CC 100%);
+        }
+
+        .canva-gradient-btn {
+            background: linear-gradient(135deg, #7D2AE8 0%, #6157FF 50%, #00C4CC 100%);
+            background-size: 200% auto;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .canva-gradient-btn:hover {
+            background-position: right center;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -5px rgba(125, 42, 232, 0.4);
+        }
+
+        .canva-card-glow {
+            transition: all 0.3s ease;
+        }
+        .canva-card-glow:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px -5px rgba(125, 42, 232, 0.15);
+        }
+
+        /* Print Specific Styles */
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            .print-only {
+                display: block !important;
+            }
+            body {
+                background: #ffffff !important;
+                color: #000000 !important;
+            }
+            .print-container {
+                width: 100% !important;
+                max-width: 100% !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            table {
+                width: 100% !important;
+                border-collapse: collapse !important;
+            }
+            th, td {
+                border: 1px solid #000000 !important;
+                padding: 8px !important;
+                font-size: 11pt !important;
+            }
+            @page {
+                size: landscape;
+                margin: 1cm;
+            }
+        }
+    </style>
+</head>
+<body class="bg-canva-lightBg text-slate-800 min-h-screen flex flex-col justify-between selection:bg-canva-purple selection:text-white">
+
+    <!-- Toast Notification Overlay -->
+    <div id="toast-container" class="fixed bottom-5 left-5 z-50 flex flex-col gap-2 no-print pointer-events-none"></div>
+
+    <!-- Application Header (Canva Style Bar) -->
+    <header class="bg-white/90 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-30 shadow-sm no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
+            <div class="flex flex-col lg:flex-row items-center justify-between gap-4">
+                
+                <!-- Logo & School Title -->
+                <div class="flex items-center space-x-3.5 space-x-reverse">
+                    <div class="w-12 h-12 canva-gradient-bg text-white rounded-2xl flex items-center justify-center shadow-lg shadow-canva-purple/30 group hover:rotate-6 transition-transform duration-300">
+                        <i class="fa-solid fa-palette text-2xl group-hover:scale-110 transition-transform"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h1 class="text-xl font-black text-slate-900 tracking-tight">
+                                <span class="canva-gradient-text">مركز مصادر التعلم</span> بمدرسة المري
+                            </h1>
+                            <span id="header-school-tag" class="text-[11px] bg-canva-softPurple text-canva-purple font-extrabold px-3 py-0.5 rounded-full border border-canva-purple/20 hidden sm:inline">مدرسة المري</span>
+                        </div>
+                        <p class="text-xs font-bold text-slate-500 mt-0.5 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-canva-cyan animate-pulse"></span>
+                            <span>نظام الحجز السحابي الذكي (يفتح السبت الساعة 12:00 ص)</span>
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Top Header Action Buttons (Canva Style Pills) -->
+                <div class="flex items-center gap-2 flex-wrap justify-center">
+                    
+                    <!-- BOOKING TOGGLE PAUSE/RESUME BUTTON -->
+                    <button onclick="requestAdminAccess(toggleBookingPauseStatus, 'إيقاف / استئناف الحجز')" id="booking-toggle-btn" class="inline-flex items-center justify-center px-3.5 py-2 bg-emerald-50 text-emerald-900 hover:bg-emerald-100 border border-emerald-300 text-xs font-bold rounded-2xl transition gap-1.5 shadow-sm">
+                        <i id="booking-toggle-icon" class="fa-solid fa-circle-play text-emerald-600 text-sm"></i>
+                        <span id="booking-toggle-text">الحجز: حسب الجدولة (السبت 12ص)</span>
+                        <i class="fa-solid fa-lock text-[10px] text-emerald-600 mr-0.5"></i>
+                    </button>
+
+                    <!-- Announcement Manager Button -->
+                    <button onclick="requestAdminAccess(realOpenAnnouncementModal, 'إدارة التنبيهات والملاحظات')" class="inline-flex items-center justify-center px-3.5 py-2 bg-purple-50 text-canva-purple hover:bg-purple-100 border border-purple-200 text-xs font-bold rounded-2xl transition gap-1.5 shadow-sm">
+                        <i class="fa-solid fa-note-sticky text-canva-purple"></i>
+                        <span class="hidden md:inline">التنبيهات</span>
+                        <i class="fa-solid fa-lock text-[10px] text-canva-purple mr-0.5"></i>
+                    </button>
+
+                    <!-- Cloud Requirement Info Badge -->
+                    <div id="cloud-connection-badge" class="inline-flex items-center justify-center px-3.5 py-2 bg-indigo-50 text-indigo-900 border border-indigo-200/80 text-xs font-bold rounded-2xl shadow-sm gap-2" title="النظام يعمل حصرياً عبر الربط السحابي المباشر">
+                        <i class="fa-solid fa-cloud text-canva-purple"></i>
+                        <span>ربط سحابي مباشر ☁️</span>
+                    </div>
+
+                    <!-- Cloud Sync Status Button -->
+                    <button onclick="requestAdminAccess(realOpenCloudModal, 'إعدادات السحابة')" id="cloud-status-btn" class="inline-flex items-center justify-center px-3.5 py-2 bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-200 text-xs font-bold rounded-2xl transition gap-1.5 shadow-sm">
+                        <i id="cloud-icon" class="fa-solid fa-cloud text-amber-600"></i>
+                        <span id="cloud-status-text">جاري الاتصال بالسحابة...</span>
+                        <i class="fa-solid fa-lock text-[10px] text-amber-600 mr-0.5"></i>
+                    </button>
+
+                    <!-- Google Drive Backup Button -->
+                    <button onclick="requestAdminAccess(realOpenDriveArchiveModal, 'Google Drive والأرشيف')" class="inline-flex items-center justify-center px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 text-xs font-bold rounded-2xl border border-emerald-200 transition gap-1.5 shadow-sm">
+                        <i class="fa-brands fa-google-drive text-emerald-600 text-sm"></i>
+                        <span class="hidden md:inline">الأرشيف والدرايف</span>
+                        <i class="fa-solid fa-lock text-[10px] text-emerald-600 mr-0.5"></i>
+                    </button>
+
+                    <!-- School Settings Button -->
+                    <button onclick="requestAdminAccess(realOpenSchoolSettingsModal, 'بيانات التقرير')" class="inline-flex items-center justify-center px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-2xl border border-slate-300/80 transition gap-1.5">
+                        <i class="fa-solid fa-sliders text-slate-600"></i>
+                        <span class="hidden lg:inline">بيانات التقرير</span>
+                        <i class="fa-solid fa-lock text-[10px] text-slate-500 mr-0.5"></i>
+                    </button>
+
+                    <!-- Print Schedule Button -->
+                    <button onclick="requestAdminAccess(executePrint, 'طباعة الجدول الأسبوعي')" class="inline-flex items-center justify-center px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-2xl transition gap-1.5 shadow-md">
+                        <i class="fa-solid fa-print text-canva-cyan"></i>
+                        <span class="hidden sm:inline">طباعة</span>
+                        <i class="fa-solid fa-lock text-[10px] text-amber-400 mr-0.5"></i>
+                    </button>
+
+                    <!-- New Booking Action Button -->
+                    <button id="btn-open-new-booking" onclick="openBookingModal()" class="canva-gradient-btn text-white text-xs font-black px-5 py-2.5 rounded-2xl shadow-md gap-2 flex items-center">
+                        <i class="fa-solid fa-plus-circle text-base"></i>
+                        <span>حجز جديد</span>
+                    </button>
+
+                    <!-- Clear Schedule Action Button -->
+                    <button onclick="requestAdminAccess(executeClearSchedule, 'تفريغ جدول الأسبوع')" class="inline-flex items-center justify-center px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-2xl border border-rose-200 transition gap-1" title="تفريغ الجدول يدوياً">
+                        <i class="fa-solid fa-trash-can"></i>
+                        <span class="hidden sm:inline text-xs font-bold">تفريغ يدوي</span>
+                        <i class="fa-solid fa-lock text-[10px] text-rose-500"></i>
+                    </button>
+
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="hidden print-only print-header text-center my-4">
+        <h1 class="text-2xl font-black" id="print-school-name">مركز مصادر التعلم</h1>
+        <h2 class="text-lg font-bold text-slate-700 mt-1">جدول الحجوزات والأنشطة الأسبوعية المعتمدة</h2>
+        <div class="flex justify-between items-center text-xs text-slate-600 mt-4 px-6 border-t border-b border-slate-300 py-2">
+            <div><strong>أخصائي مصادر التعلم:</strong> <span id="print-specialist-name">-</span></div>
+            <div><strong>مدير المدرسة:</strong> <span id="print-principal-name">-</span></div>
+            <div><strong>تاريخ الطباعة:</strong> <span id="print-date">-</span></div>
+        </div>
+    </div>
+
+    <!-- Main Content Container -->
+    <main class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow space-y-6">
+
+        <!-- PAUSED BOOKING ALERT BANNER -->
+        <div id="booking-paused-alert-banner" class="hidden no-print transition-all duration-300">
+            <div class="bg-gradient-to-r from-amber-600 via-rose-700 to-red-800 text-white rounded-3xl p-4 shadow-lg border border-amber-400 flex items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center text-xl shrink-0">
+                        <i class="fa-solid fa-clock text-white animate-pulse"></i>
+                    </div>
+                    <div>
+                        <h4 id="booking-pause-title" class="font-black text-sm">الحجز مغلق حالياً</h4>
+                        <p id="booking-pause-desc" class="text-xs text-amber-100 font-semibold mt-0.5">يفتح الحجز تلقائياً يوم السبت الساعة 12:00 صباحاً.</p>
+                    </div>
+                </div>
+                <span class="text-xs bg-white text-rose-800 font-black px-3.5 py-1.5 rounded-xl shadow-sm shrink-0">مغلق للوقت الحالي</span>
+            </div>
+        </div>
+
+        <!-- TEACHER ANNOUNCEMENT / NOTES BANNER -->
+        <div id="teacher-announcement-banner" class="hidden no-print transition-all duration-300">
+            <div class="bg-gradient-to-r from-canva-purple via-indigo-700 to-canva-dark text-white rounded-3xl p-5 shadow-canva border border-canva-purple/30 relative overflow-hidden">
+                <div class="absolute -left-10 -bottom-10 w-36 h-36 bg-canva-cyan/20 rounded-full blur-2xl pointer-events-none"></div>
+                <div class="absolute -right-10 -top-10 w-36 h-36 bg-canva-pink/20 rounded-full blur-2xl pointer-events-none"></div>
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
+                    <div class="flex items-start gap-3.5">
+                        <div class="w-12 h-12 bg-white/10 backdrop-blur-md text-amber-300 border border-white/20 rounded-2xl flex items-center justify-center shrink-0 shadow-lg">
+                            <i class="fa-solid fa-bell text-xl animate-bounce"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="bg-amber-400 text-slate-900 text-[11px] font-black px-2.5 py-0.5 rounded-lg shadow-sm">تنبيه وملاحظات للمعلمين</span>
+                                <span id="announcement-time-tag" class="text-xs text-indigo-200 font-semibold"></span>
+                            </div>
+                            <p id="announcement-text-display" class="text-sm font-bold text-slate-100 mt-1.5 leading-relaxed whitespace-pre-line"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation & Search Bar Header -->
+        <div class="flex flex-col md:flex-row items-center justify-between gap-3 no-print">
+            
+            <!-- Navigation Tabs -->
+            <div class="bg-white/80 backdrop-blur-md p-1.5 rounded-2xl border border-slate-200/80 shadow-sm inline-flex gap-1 w-full md:w-auto">
+                <button id="tab-grid-btn" onclick="switchTab('grid')" class="flex-1 md:flex-none py-2.5 px-6 text-xs sm:text-sm font-black rounded-xl text-white canva-gradient-bg shadow-sm flex items-center justify-center gap-2 transition-all">
+                    <i class="fa-solid fa-calendar-days text-canva-cyan"></i>
+                    <span>الجدول الأسبوعي</span>
+                </button>
+                <button id="tab-stats-btn" onclick="switchTab('stats')" class="flex-1 md:flex-none py-2.5 px-6 text-xs sm:text-sm font-bold rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 flex items-center justify-center gap-2 transition-all">
+                    <i class="fa-solid fa-trophy text-amber-500"></i>
+                    <span>نقاط وتنافس المعلمين</span>
+                </button>
+            </div>
+
+            <!-- Search Input Bar -->
+            <div class="relative w-full md:w-72">
+                <i class="fa-solid fa-magnifying-glass absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                <input type="text" id="search-input" oninput="handleSearchInput()" placeholder="بحث باسم المعلم أو المادة..." class="w-full pl-4 pr-9 py-2.5 bg-white rounded-2xl text-xs font-semibold border border-slate-200/90 shadow-sm focus:outline-none focus:ring-2 focus:ring-canva-purple transition-all">
+            </div>
+
+        </div>
+
+        <!-- 1. WEEKLY GRID VIEW TAB -->
+        <div id="view-grid" class="space-y-5">
+            
+            <!-- CLOUD DISCONNECTED WARNING BANNER -->
+            <div id="cloud-disconnected-banner" class="hidden no-print transition-all duration-300">
+                <div class="bg-gradient-to-r from-amber-600 via-rose-600 to-red-700 text-white rounded-3xl p-4 shadow-lg border border-amber-400 flex items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center text-xl shrink-0">
+                            <i class="fa-solid fa-triangle-exclamation text-white animate-bounce"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-black text-sm">أنتم غير متصلين بالسحابة حالياً! ⚠️</h4>
+                            <p class="text-xs text-amber-100 font-semibold mt-0.5">تم إيقاف الحجز مؤقتاً لحين استعادة الاتصال بالسحابة لمنع تعارض الحجوزات أو التخزين المحلي غير المباشر.</p>
+                        </div>
+                    </div>
+                    <span class="text-xs bg-white text-rose-800 font-black px-3.5 py-1.5 rounded-xl shadow-sm shrink-0">الحجز غير متاح</span>
+                </div>
+            </div>
+
+            <!-- Quick Status Alert Box -->
+            <div id="past-days-banner" class="bg-white/90 rounded-3xl p-4 text-xs text-slate-800 flex flex-wrap items-center justify-between gap-3 no-print shadow-sm border border-slate-200/80">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-2xl bg-canva-softCyan text-canva-cyan flex items-center justify-center shrink-0 text-base">
+                        <i class="fa-solid fa-circle-info"></i>
+                    </div>
+                    <span id="past-days-info-text" class="font-bold leading-relaxed text-slate-700">الحصص المتاحة للحجز من الحصة 2 إلى الحصة 7. الحجز يفتح تلقائياً يوم السبت الساعة 12:00 صباحاً.</span>
+                </div>
+                <div class="flex items-center gap-4 text-xs font-bold hidden md:flex border-r border-slate-200 pr-4">
+                    <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-emerald-500 inline-block shadow-sm"></span> حصة متاحة</span>
+                    <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-canva-purple inline-block shadow-sm"></span> حصة محجوزة</span>
+                    <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-slate-400 inline-block shadow-sm"></span> يوم منقضي</span>
+                </div>
+            </div>
+
+            <!-- Schedule Grid Table in Canva Frame -->
+            <div class="bg-white rounded-3xl shadow-canva border border-slate-200/90 overflow-hidden print-container">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-center border-collapse min-w-[750px]">
+                        <thead>
+                            <tr id="schedule-grid-header" class="bg-slate-900 text-white text-xs sm:text-sm font-black">
+                                <!-- Headers dynamically generated by JavaScript -->
+                            </tr>
+                        </thead>
+                        <tbody id="schedule-grid-body" class="divide-y divide-slate-100 text-xs sm:text-sm">
+                            <!-- Rendered dynamically by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. POINTS & STATS TAB -->
+        <div id="view-stats" class="hidden space-y-6">
+            
+            <!-- Summary Metric Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                
+                <div class="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm canva-card-glow flex items-center gap-4">
+                    <div class="p-4 bg-canva-softPurple text-canva-purple rounded-2xl text-2xl shadow-inner">
+                        <i class="fa-solid fa-layer-group"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-500 font-bold">إجمالي الحجوزات الأسبوعية</p>
+                        <h4 id="stat-total-bookings" class="text-3xl font-black text-slate-900 mt-0.5">0</h4>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm canva-card-glow flex items-center gap-4">
+                    <div class="p-4 bg-amber-50 text-amber-600 rounded-2xl text-2xl shadow-inner">
+                        <i class="fa-solid fa-crown"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-500 font-bold">المعلم الأكثر استخداماً</p>
+                        <h4 id="stat-top-teacher" class="text-base font-black text-slate-800 mt-0.5">-</h4>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm canva-card-glow flex items-center gap-4">
+                    <div class="p-4 bg-emerald-50 text-emerald-600 rounded-2xl text-2xl shadow-inner">
+                        <i class="fa-solid fa-book-bookmark"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-500 font-bold">المادة الأكثر تكراراً</p>
+                        <h4 id="stat-top-subject" class="text-base font-black text-slate-800 mt-0.5">-</h4>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Leaderboard Rankings Card -->
+            <div class="bg-white rounded-3xl shadow-canva border border-slate-200/80 overflow-hidden">
+                <div class="p-5 border-b border-slate-100 bg-slate-50/80 flex items-center justify-between">
+                    <h3 class="font-black text-slate-900 text-base flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-xl bg-amber-400 text-slate-900 flex items-center justify-center font-bold text-sm shadow-sm">
+                            <i class="fa-solid fa-trophy"></i>
+                        </div>
+                        <span>لائحة المعلمين الأكثر استخداماً لمركز المصادر (+1 نقطة لكل حجز)</span>
+                    </h3>
+                </div>
+                <div class="p-6">
+                    <div id="leaderboard-container" class="space-y-3">
+                        <!-- Rendered via JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Website Footer with Specialist Info -->
+    <footer class="bg-white/90 backdrop-blur-md border-t border-slate-200/80 py-4 mt-8 no-print shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <div class="flex items-center gap-2.5 font-bold text-slate-700">
+                <div class="w-8 h-8 rounded-xl bg-canva-softPurple text-canva-purple flex items-center justify-center text-sm shadow-sm border border-canva-purple/20">
+                    <i class="fa-solid fa-user-tie"></i>
+                </div>
+                <span>أخصائي مصادر التعلم:</span>
+                <span id="footer-specialist-name" class="text-slate-900 font-black text-sm bg-slate-100 px-3.5 py-1 rounded-xl border border-slate-300/80 shadow-inner">-</span>
+            </div>
+            <div class="flex items-center gap-3 text-slate-500 font-bold text-[11px]">
+                <span class="flex items-center gap-1.5">
+                    <i class="fa-solid fa-school text-canva-purple"></i>
+                    <span id="footer-school-name">مركز مصادر التعلم</span>
+                </span>
+                <span>•</span>
+                <span>جميع الحقوق محفوظة &copy; 2026</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- MODAL CONTAINER (Fix for overlaid dialogs) -->
+    <div id="modals-root">
+        <!-- MODAL: ADMIN PASSWORD PROTECTION -->
+        <div id="modal-admin-auth" class="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-50 flex items-center justify-center hidden p-4 no-print">
+            <div class="bg-white rounded-3xl shadow-canva-hover w-full max-w-sm overflow-hidden border border-slate-100 transform transition-all">
+                <div class="bg-slate-900 text-white p-5 flex justify-between items-center">
+                    <h3 class="font-black text-base flex items-center gap-2.5">
+                        <i class="fa-solid fa-shield-halved text-amber-400"></i>
+                        <span id="admin-auth-action-name">حماية الإعدادات</span>
+                    </h3>
+                    <button onclick="closeAdminAuthModal()" class="text-slate-400 hover:text-white transition">
+                        <i class="fa-solid fa-xmark text-xl"></i>
+                    </button>
+                </div>
+                <form onsubmit="handleAdminAuthSubmit(event)" class="p-6 space-y-4">
+                    <div class="text-center">
+                        <div class="w-14 h-14 bg-amber-100 text-amber-600 rounded-3xl flex items-center justify-center mx-auto text-2xl mb-3 shadow-inner">
+                            <i class="fa-solid fa-key"></i>
+                        </div>
+                        <p class="text-xs text-slate-700 font-bold">هذا الخيار محمي بكلمة مرور خاصة بمسؤول المركز</p>
+                        <p class="text-[11px] text-slate-400 mt-1 font-semibold">يرجى إدخال رمز المرور للمتابعة</p>
+                    </div>
+
+                    <div>
+                        <input type="password" id="admin-password-input" required placeholder="أدخل رمز المرور..." class="w-full px-4 py-3 border border-slate-300 rounded-2xl text-center text-sm font-bold focus:ring-2 focus:ring-canva-purple focus:outline-none transition-all" dir="ltr">
+                    </div>
+
+                    <div class="flex justify-center gap-2 pt-2 border-t border-slate-100">
+                        <button type="button" onclick="closeAdminAuthModal()" class="px-5 py-2.5 border border-slate-300 rounded-2xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition">إلغاء</button>
+                        <button type="submit" class="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-bold shadow-md transition flex items-center gap-2">
+                            <i class="fa-solid fa-lock-open text-canva-cyan"></i>
+                            <span>تأكيد الدخول</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL 1: NEW BOOKING MODAL -->
+        <div id="modal-booking" class="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-50 flex items-center justify-center hidden p-4 no-print">
+            <div class="bg-white rounded-3xl shadow-canva-hover w-full max-w-md overflow-hidden transform transition-all border border-slate-100">
+                <div class="canva-gradient-bg text-white p-5 flex justify-between items-center">
+                    <h3 class="font-black text-base flex items-center gap-2.5">
+                        <i class="fa-solid fa-calendar-plus text-canva-cyan text-lg"></i>
+                        <span>حجز حصة جديدة في المركز</span>
+                    </h3>
+                    <button onclick="closeBookingModal()" class="text-white/80 hover:text-white transition">
+                        <i class="fa-solid fa-xmark text-xl"></i>
+                    </button>
+                </div>
+
+                <form id="form-booking" onsubmit="handleBookingFormSubmit(event)" class="p-6 space-y-4">
+                    
+                    <!-- Day Selection -->
+                    <div>
+                        <label class="block text-xs font-black text-slate-800 mb-1.5">اختر اليوم الدراسي</label>
+                        <select id="modal-select-day" onchange="onModalDayChange()" class="w-full px-4 py-3 border border-slate-300 rounded-2xl text-xs font-bold focus:ring-2 focus:ring-canva-purple focus:outline-none bg-slate-50" required>
+                            <!-- Options generated dynamically -->
+                        </select>
+                    </div>
+
+                    <!-- Available Periods Selection -->
+                    <div>
+                        <label class="block text-xs font-black text-slate-800 mb-1.5">
+                            الحصة المتاحة <span class="text-emerald-600 font-bold">(تُخفى الحصص المحجوزة)</span>
+                        </label>
+                        <select id="modal-select-period" class="w-full px-4 py-3 border border-slate-300 rounded-2xl text-xs font-bold focus:ring-2 focus:ring-canva-purple focus:outline-none bg-slate-50" required>
+                            <!-- Options generated dynamically based on chosen day -->
+                        </select>
+                    </div>
+
+                    <!-- Teacher Name -->
+                    <div>
+                        <label class="block text-xs font-black text-slate-800 mb-1.5">اسم المعلم / المعلمة</label>
+                        <input type="text" id="modal-input-teacher" required placeholder="أدخل الاسم الثلاثي..." class="w-full px-4 py-3 border border-slate-300 rounded-2xl text-xs font-semibold focus:ring-2 focus:ring-canva-purple focus:outline-none">
+                    </div>
+
+                    <!-- Subject -->
+                    <div>
+                        <label class="block text-xs font-black text-slate-800 mb-1.5">المادة الدراسية</label>
+                        <input type="text" id="modal-input-subject" required placeholder="مثال: اللغة العربية / العلوم..." class="w-full px-4 py-3 border border-slate-300 rounded-2xl text-xs font-semibold focus:ring-2 focus:ring-canva-purple focus:outline-none">
+                    </div>
+
+                    <!-- Grade & Activity Type -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-black text-slate-800 mb-1.5">الصف / شعبة</label>
+                            <input type="text" id="modal-input-grade" placeholder="مثال: 10/1..." class="w-full px-4 py-3 border border-slate-300 rounded-2xl text-xs font-semibold focus:ring-2 focus:ring-canva-purple focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-black text-slate-800 mb-1.5">نوع النشاط</label>
+                            <input type="text" id="modal-input-activity" placeholder="عرض مرئي / بحث..." class="w-full px-4 py-3 border border-slate-300 rounded-2xl text-xs font-semibold focus:ring-2 focus:ring-canva-purple focus:outline-none">
+                        </div>
+                    </div>
+
+                    <div class="pt-3 flex justify-end gap-2 border-t border-slate-200">
+                        <button type="button" onclick="closeBookingModal()" class="px-5 py-2.5 border border-slate-300 rounded-2xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition">إلغاء</button>
+                        <button type="submit" class="canva-gradient-btn text-white px-6 py-2.5 rounded-2xl text-xs font-black shadow-md transition flex items-center gap-2">
+                            <i class="fa-solid fa-check"></i>
+                            <span>تأكيد الحجز وكسب +1 نقطة</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL 2: GOOGLE DRIVE & WEEKLY ARCHIVE MODAL -->
+        <div id="modal-drive-archive" class="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-50 flex items-center justify-center hidden p-4 no-print">
+            <div class="bg-white rounded-3xl shadow-canva-hover w-full max-w-lg overflow-hidden">
+                <div class="bg-emerald-800 text-white p-5 flex justify-between items-center">
+                    <h3 class="font-black text-base flex items-center gap-2.5">
+                        <i class="fa-brands fa-google-drive text-emerald-300 text-xl"></i>
+                        <span>أرشيف الأسبوع وحفظ نسخة في Google Drive</span>
+                    </h3>
+                    <button onclick="closeDriveArchiveModal()" class="text-slate-300 hover:text-white transition">
+                        <i class="fa-solid fa-xmark text-xl"></i>
+                    </button>
+                </div>
+                <div class="p-6 space-y-4 text-xs text-slate-700">
+                    <p class="leading-relaxed font-semibold">
+                        بصفتك مسؤول مركز مصادر التعلم، يمكنك تصدير الأرشيف الأسبوعي الشامل للحجوزات والنقاط للبدء بأسبوع جديد مع الاحتفاظ بالنسخ التاريخية.
+                    </p>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 my-2">
+                        <button onclick="downloadJsonArchive()" class="p-4 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-2xl text-right transition flex flex-col justify-between gap-2 group">
+                            <div class="flex items-center justify-between w-full">
+                                <i class="fa-solid fa-file-code text-emerald-600 text-xl"></i>
+                                <i class="fa-solid fa-download text-emerald-500 group-hover:translate-y-0.5 transition"></i>
+                            </div>
+                            <div>
+                                <div class="font-bold text-slate-900">تصدير ملف الأرشيف (JSON)</div>
+                                <div class="text-[11px] text-slate-500">نسخة كاملة قابلة للاسترجاع لاحقاً</div>
+                            </div>
+                        </button>
+
+                        <button onclick="exportToCSV()" class="p-4 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-2xl text-right transition flex flex-col justify-between gap-2 group">
+                            <div class="flex items-center justify-between w-full">
+                                <i class="fa-solid fa-file-excel text-blue-600 text-xl"></i>
+                                <i class="fa-solid fa-download text-blue-500 group-hover:translate-y-0.5 transition"></i>
+                            </div>
+                            <div>
+                                <div class="font-bold text-slate-900">تصدير جدول Excel (CSV)</div>
+                                <div class="text-[11px] text-slate-500">جدول جاهز للفتح في Excel وإرفاقه بالدرايف</div>
+                            </div>
+                        </button>
+                    </div>
+
+                    <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2">
+                        <div class="font-bold text-slate-800 flex items-center gap-2">
+                            <i class="fa-solid fa-cloud-arrow-up text-canva-purple"></i>
+                            <span>رفع النسخة مباشرة إلى Google Drive:</span>
+                        </div>
+                        <p class="text-[11px] text-slate-600 font-semibold">
+                            بعد تصدير ملف الأرشيف إلى جهازك، يمكنك رفعه مباشرة لمجلد مركز المصادر في Drive عبر الضغط على الزر أدناه:
+                        </p>
+                        <a href="https://drive.google.com/" target="_blank" class="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold transition shadow-sm text-xs mt-1">
+                            <i class="fa-brands fa-google-drive text-sm"></i>
+                            <span>فتح Google Drive لرفع الملف</span>
+                        </a>
+                    </div>
+
+                    <div class="flex justify-end pt-2">
+                        <button onclick="closeDriveArchiveModal()" class="px-6 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold rounded-2xl transition">إغلاق</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL 3: CLOUD CONFIG MODAL -->
+        <div id="modal-cloud-config" class="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-50 flex items-center justify-center hidden p-4 no-print">
+            <div class="bg-white rounded-3xl shadow-canva-hover w-full max-w-md overflow-hidden">
+                <div class="bg-slate-900 text-white p-5 flex justify-between items-center">
+                    <h3 class="font-black text-base flex items-center gap-2.5">
+                        <i class="fa-solid fa-cloud-bolt text-amber-400"></i>
+                        <span>إعدادات السحابة (Firebase)</span>
+                    </h3>
+                    <button onclick="closeCloudModal()" class="text-slate-400 hover:text-white transition">
+                        <i class="fa-solid fa-xmark text-xl"></i>
+                    </button>
+                </div>
+                <div class="p-6 space-y-4">
+                    <p class="text-xs text-slate-600 font-semibold leading-relaxed">
+                        رابط قاعدة البيانات السحابية الحالية. يمكنك تغييره إذا رغبت في الربط بمشروع آخر:
+                    </p>
+                    <div>
+                        <label class="block text-xs font-black text-slate-800 mb-1.5">رابط قاعدة البيانات (Database URL)</label>
+                        <input type="url" id="cloud-url-input" placeholder="https://lrc-school-default-rtdb.firebaseio.com/" class="w-full px-4 py-3 border border-slate-300 rounded-2xl text-xs font-semibold focus:ring-2 focus:ring-canva-purple focus:outline-none" dir="ltr">
+                    </div>
+                    <div class="flex justify-end gap-2 pt-3 border-t border-slate-200">
+                        <button onclick="closeCloudModal()" class="px-5 py-2.5 border border-slate-300 rounded-2xl text-xs font-bold text-slate-600 hover:bg-slate-100">إلغاء</button>
+                        <button onclick="saveCloudConfig()" class="canva-gradient-btn text-white px-6 py-2.5 rounded-2xl text-xs font-black shadow-md">حفظ الربط والتحديث</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL 4: SCHOOL REPORT SETTINGS MODAL -->
+        <div id="modal-school-settings" class="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-50 flex items-center justify-center hidden p-4 no-print">
+            <div class="bg-white rounded-3xl shadow-canva-hover w-full max-w-md overflow-hidden">
+                <div class="bg-slate-900 text-white p-5 flex justify-between items-center">
+                    <h3 class="font-black text-base flex items-center gap-2.5">
+                        <i class="fa-solid fa-school-flag text-canva-cyan"></i>
+                        <span>بيانات المدرسة والطباعة الرسمية</span>
+                    </h3>
+                    <button onclick="closeSchoolSettingsModal()" class="text-slate-400 hover:text-white transition">
+                        <i class="fa-solid fa-xmark text-xl"></i>
+                    </button>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div>
+                        <label class="block text-xs font-black text-slate-800 mb-1.5">اسم المدرسة</label>
+                        <input type="text" id="setting-school-name" placeholder="مدرسة ..." class="w-full px-4 py-3 border border-slate-300 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-canva-purple">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-black text-slate-800 mb-1.5">اسم أخصائي مصادر التعلم</label>
+                        <input type="text" id="setting-specialist-name" placeholder="أ. ..." class="w-full px-4 py-3 border border-slate-300 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-canva-purple">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-black text-slate-800 mb-1.5">اسم مدير المدرسة</label>
+                        <input type="text" id="setting-principal-name" placeholder="أ. ..." class="w-full px-4 py-3 border border-slate-300 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-canva-purple">
+                    </div>
+                    <div class="flex justify-end gap-2 pt-3 border-t border-slate-200">
+                        <button onclick="closeSchoolSettingsModal()" class="px-5 py-2.5 border border-slate-300 rounded-2xl text-xs font-bold text-slate-600 hover:bg-slate-100">إلغاء</button>
+                        <button onclick="saveSchoolSettings()" class="canva-gradient-btn text-white px-6 py-2.5 rounded-2xl text-xs font-black shadow-md">حفظ البيانات</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL 5: ANNOUNCEMENT / NOTES MANAGER MODAL -->
+        <div id="modal-announcement-manager" class="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-50 flex items-center justify-center hidden p-4 no-print">
+            <div class="bg-white rounded-3xl shadow-canva-hover w-full max-w-md overflow-hidden">
+                <div class="canva-gradient-bg text-white p-5 flex justify-between items-center">
+                    <h3 class="font-black text-base flex items-center gap-2.5">
+                        <i class="fa-solid fa-note-sticky text-amber-300"></i>
+                        <span>تعديل التنبيهات والملاحظات للمعلمين</span>
+                    </h3>
+                    <button onclick="closeAnnouncementModal()" class="text-white/80 hover:text-white transition">
+                        <i class="fa-solid fa-xmark text-xl"></i>
+                    </button>
+                </div>
+                <form onsubmit="handleAnnouncementSubmit(event)" class="p-6 space-y-4">
+                    <div>
+                        <label class="block text-xs font-black text-slate-800 mb-1.5">النص / الملاحظات الظاهرة للمعلمين أعلى الصفحة</label>
+                        <textarea id="announcement-input-text" rows="4" placeholder="أدخل التنبيهات أو الملاحظات والتعليمات الظاهرة للمعلمين هنا..." class="w-full px-4 py-3 border border-slate-300 rounded-2xl text-xs font-semibold focus:ring-2 focus:ring-canva-purple focus:outline-none"></textarea>
+                    </div>
+                    <div class="flex items-center justify-between pt-3 border-t border-slate-200">
+                        <button type="button" onclick="clearAnnouncement()" class="px-4 py-2.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-2xl text-xs font-bold transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-trash-can"></i>
+                            <span>مسح النص الحالي</span>
+                        </button>
+                        <div class="flex gap-2">
+                            <button type="button" onclick="closeAnnouncementModal()" class="px-4 py-2.5 border border-slate-300 rounded-2xl text-xs font-bold text-slate-600 hover:bg-slate-100">إلغاء</button>
+                            <button type="submit" class="canva-gradient-btn text-white px-5 py-2.5 rounded-2xl text-xs font-black shadow-md">حفظ ونشر النص</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // MASTER ADMIN PASSWORD
+        const ADMIN_PASSWORD = "Sama*95141505";
+
+        // DEFAULT FIREBASE DATABASE URL
+        const DEFAULT_FIREBASE_URL = 'https://lrc-school-default-rtdb.firebaseio.com/';
+
+        // School Days: Sunday to Wednesday (Thursday Removed)
+        const DAYS = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء"];
+        const DAY_INDEX_MAP = { "الأحد": 0, "الإثنين": 1, "الثلاثاء": 2, "الأربعاء": 3 };
+        
+        // Periods: Period 2 to Period 7
+        const PERIODS = ["الحصة 2", "الحصة 3", "الحصة 4", "الحصة 5", "الحصة 6", "الحصة 7"];
+
+        // Application Global States
+        let bookings = [];
+        let isBookingPaused = false;
+        let isCloudConnected = false;
+        let firebaseRef = null;
+        let announcementRef = null;
+        let bookingStatusRef = null;
+        let schoolSettingsRef = null;
+        let pendingAdminAction = null;
+        let searchQuery = '';
+
+        let schoolSettings = {
+            schoolName: 'مركز مصادر التعلم بمدرسة المري',
+            specialistName: '-',
+            principalName: '-'
+        };
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadSchoolSettings();
+            initFirebaseOrLocal();
+            checkAutomaticScheduleStatus();
+            // فحص حالة الوقت كل دقيقة تلقائياً
+            setInterval(checkAutomaticScheduleStatus, 60000);
+            document.getElementById('print-date').innerText = new Date().toLocaleDateString('ar-EG');
+        });
+
+        // دالة التحقق التلقائي: الحجز يفتح يوم السبت الساعة 12:00 ص ويغلق بقية الأوقات
+        function checkAutomaticScheduleStatus() {
+            const now = new Date();
+            const dayOfWeek = now.getDay(); // 6 = Saturday, 0 = Sunday, 1 = Monday, etc.
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+
+            // هل الوقت الحالي هو يوم السبت ابتداءً من الساعة 12:00 ص فما بعد؟
+            // (أو يمكن تمديد فترة الفتح طوال السبت مثلاً، أو طوال الأسبوع حسب الرغبة. هنا نفترض أنه يفتح يوم السبت ابتداءً من منتصف الليل 12:00 صباحاً).
+            // بناءً على الطلب "الحجز يفتح يوم السبت الساعة 12 ص":
+            // سنعتبر أن الحجز مفتوح طوال يوم السبت، ويغلق في الأيام الأخرى (الأحد، الاثنين، الثلاثاء، الأربعاء، الخميس، الجمعة).
+            // أو إذا كان المقصود أنه يبدأ السبت 12ص ويبقى متاحاً، سنضبط المنطق أدناه:
+            
+            let shouldBeOpen = false;
+            
+            // إذا كان اليوم هو السبت (dayOfWeek === 6)
+            if (dayOfWeek === 6) {
+                shouldBeOpen = true;
+            } else {
+                // إذا أردت أن يبقى مفتوحاً طوال الأسبوع بعد فتحه السبت، يمكنك تعديل الشرط. 
+                // الحرفي: "الحجز يفتح يوم السبت الساعة 12 ص" يعني يفتح يوم السبت. لنقفل في الأيام الأخرى أو نجعل الأخصائي يتحكم.
+                // لنقم بضبط الوضع التلقائي بناءً على الوقت الحالي:
+                // إذا لم يكن سبتاً، فالوضع الافتراضي يغلق ما لم يتم تفعيله يدوياً.
+            }
+
+            // لضمان دقة الطلب: سنقوم بتحديث حالة الحجز تلقائياً بناءً على الوقت الفعلي.
+            // (ملاحظة: يمكن للمسؤول أيضاً تجاوزه أو إيقافه عبر زر الإدارة).
+        }
+
+        // 📩 دالة إرسال الإشعار عبر Google Apps Script
+        function sendEmailViaAppsScript(bookingData) {
+            const appsScriptUrl = "https://script.google.com/macros/s/AKfycbyzYmSM4cQqRrr2I4hnQuLgJmE-0wdiH59o_qkwuuEnTMy7x8A_hVx8VR3_5j3I4theLw/exec";
+
+            fetch(appsScriptUrl, {
+                method: "POST",
+                mode: "no-cors",
+                headers: {
+                    "Content-Type": "text/plain;charset=utf-8",
+                },
+                body: JSON.stringify(bookingData)
+            })
+            .then(() => {
+                console.log("تم إرسال الإشعار للإيميل بنجاح!");
+            })
+            .catch(err => {
+                console.error("خطأ في الإرسال:", err);
+            });
+        }
+
+        function requestAdminAccess(actionCallback, actionTitle = "حماية الإعدادات") {
+            pendingAdminAction = actionCallback;
+            document.getElementById('admin-auth-action-name').innerText = actionTitle;
+            document.getElementById('admin-password-input').value = '';
+            document.getElementById('modal-admin-auth').classList.remove('hidden');
+            setTimeout(() => {
+                document.getElementById('admin-password-input').focus();
+            }, 100);
+        }
+
+        function closeAdminAuthModal() {
+            document.getElementById('modal-admin-auth').classList.add('hidden');
+            pendingAdminAction = null;
+        }
+
+        function handleAdminAuthSubmit(e) {
+            e.preventDefault();
+            const inputPwd = document.getElementById('admin-password-input').value;
+            
+            if (inputPwd === ADMIN_PASSWORD) {
+                const actionToRun = pendingAdminAction;
+                closeAdminAuthModal();
+                showToast('تم التحقق بنجاح 👍', 'success');
+                if (actionToRun) actionToRun();
+            } else {
+                showToast('رمز المرور غير صحيح!', 'error');
+                document.getElementById('admin-password-input').value = '';
+                document.getElementById('admin-password-input').focus();
+            }
+        }
+
+        function toggleBookingPauseStatus() {
+            isBookingPaused = !isBookingPaused;
+            saveBookingPauseStatusState();
+            
+            if (isBookingPaused) {
+                showToast('تم إيقاف الحجز المؤقت بنجاح ⏸️', 'info');
+            } else {
+                showToast('تم استئناف الحجز متاحاً للجميع 🟢', 'success');
+            }
+        }
+
+        function saveBookingPauseStatusState() {
+            const statusObj = {
+                isPaused: isBookingPaused,
+                updatedAt: new Date().toISOString()
+            };
+
+            localStorage.setItem('lrc_booking_paused', isBookingPaused ? 'true' : 'false');
+            
+            if (bookingStatusRef && isCloudConnected) {
+                bookingStatusRef.set(statusObj);
+            }
+            updatePauseUI();
+        }
+
+        function updatePauseUI() {
+            const toggleBtn = document.getElementById('booking-toggle-btn');
+            const toggleIcon = document.getElementById('booking-toggle-icon');
+            const toggleText = document.getElementById('booking-toggle-text');
+            const alertBanner = document.getElementById('booking-paused-alert-banner');
+            const newBookingBtn = document.getElementById('btn-open-new-booking');
+
+            // فحص هل نحن في يوم السبت الساعة 12 ص فما بعد تلقائياً؟
+            const now = new Date();
+            const isSaturday = now.getDay() === 6;
+            
+            // إذا لم يكن يوم السبت وكان الحجز غير موقوف يدوياً، نطبق جدول السبت التلقائي
+            let effectivePaused = isBookingPaused;
+            if (!isSaturday && !isBookingPaused) {
+                // إذا أردنا القفل التلقائي طوال أيام الأسبوع باستثناء السبت:
+                // effectivePaused = true; 
+            }
+
+            if (effectivePaused || !isSaturday) {
+                if (!isSaturday && !isBookingPaused) {
+                    document.getElementById('booking-pause-title').innerText = "الحجز مغلق حالياً (يفتح يوم السبت الساعة 12:00 ص)";
+                    document.getElementById('booking-pause-desc').innerText = "نظام الحجز يفتح تلقائياً مع بداية الأسبوع الجديد (يوم السبت الساعة 12:00 منتصف الليل).";
+                } else {
+                    document.getElementById('booking-pause-title').innerText = "الحجز موقوف حالياً بقرار من إدارة مركز مصادر التعلم";
+                    document.getElementById('booking-pause-desc').innerText = "يمكنكم الاطلاع على جدول الحجوزات الحالي. سيتم استئناف الحجز فور إتاحته.";
+                }
+
+                toggleBtn.className = "inline-flex items-center justify-center px-3.5 py-2 bg-rose-50 text-rose-800 hover:bg-rose-100 border border-rose-300 text-xs font-bold rounded-2xl transition gap-1.5 shadow-sm";
+                toggleIcon.className = "fa-solid fa-clock text-rose-600 text-sm animate-pulse";
+                toggleText.innerText = isSaturday ? "الحجز: موقوف" : "الحجز: يفتح السبت 12ص";
+                alertBanner.classList.remove('hidden');
+
+                if (newBookingBtn && !isSaturday) {
+                    // إذا لم يكن السبت، نقفل زر الحجز الجديد تلقائياً
+                    newBookingBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                }
+            } else {
+                toggleBtn.className = "inline-flex items-center justify-center px-3.5 py-2 bg-emerald-50 text-emerald-900 hover:bg-emerald-100 border border-emerald-300 text-xs font-bold rounded-2xl transition gap-1.5 shadow-sm";
+                toggleIcon.className = "fa-solid fa-circle-play text-emerald-600 text-sm";
+                toggleText.innerText = "الحجز: متاح (يوم السبت)";
+                alertBanner.classList.add('hidden');
+
+                if (newBookingBtn) {
+                    newBookingBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+            }
+            renderScheduleGrid();
+        }
+
+        function initFirebaseOrLocal() {
+            let savedUrl = localStorage.getItem('lrc_firebase_url') || DEFAULT_FIREBASE_URL;
+
+            try {
+                if (!firebase.apps.length) {
+                    firebase.initializeApp({ databaseURL: savedUrl });
+                }
+                const db = firebase.database();
+                firebaseRef = db.ref('lrc_school_bookings');
+                announcementRef = db.ref('lrc_school_announcement');
+                bookingStatusRef = db.ref('lrc_booking_status');
+                schoolSettingsRef = db.ref('lrc_school_settings');
+
+                const connectedRef = db.ref('.info/connected');
+                connectedRef.on('value', (snap) => {
+                    if (snap.val() === true) {
+                        isCloudConnected = true;
+                        updateCloudConnectionStatusUI(true);
+                    } else {
+                        isCloudConnected = false;
+                        updateCloudConnectionStatusUI(false);
+                    }
+                });
+
+                firebaseRef.on('value', (snapshot) => {
+                    const data = snapshot.val();
+                    bookings = data ? Object.values(data) : [];
+                    updateAllViews();
+                });
+
+                bookingStatusRef.on('value', (snapshot) => {
+                    const statusObj = snapshot.val();
+                    if (statusObj && typeof statusObj.isPaused !== 'undefined') {
+                        isBookingPaused = !!statusObj.isPaused;
+                    }
+                    updatePauseUI();
+                });
+
+                schoolSettingsRef.on('value', (snapshot) => {
+                    const setObj = snapshot.val();
+                    if (setObj && setObj.schoolName) {
+                        schoolSettings = setObj;
+                        applySchoolSettingsUI();
+                    }
+                });
+
+                announcementRef.on('value', (snapshot) => {
+                    const annData = snapshot.val();
+                    if (annData && annData.text) {
+                        renderAnnouncementBanner(annData);
+                    } else {
+                        renderAnnouncementBanner(null);
+                    }
+                });
+
+            } catch (err) {
+                console.error("Firebase init failed:", err);
+                isCloudConnected = false;
+                updateCloudConnectionStatusUI(false);
+            }
+        }
+
+        function updateCloudConnectionStatusUI(connected) {
+            const statusText = document.getElementById('cloud-status-text');
+            const statusBtn = document.getElementById('cloud-status-btn');
+            const cloudIcon = document.getElementById('cloud-icon');
+            const disconnectedBanner = document.getElementById('cloud-disconnected-banner');
+
+            if (connected) {
+                statusText.innerText = "السحابة متصلة 🟢";
+                statusBtn.className = "inline-flex items-center justify-center px-3.5 py-2 bg-emerald-50 text-emerald-900 border border-emerald-300 text-xs font-bold rounded-2xl transition gap-1.5 shadow-sm";
+                cloudIcon.className = "fa-solid fa-cloud text-emerald-600";
+                if (disconnectedBanner) disconnectedBanner.classList.add('hidden');
+            } else {
+                statusText.innerText = "غير متصل بالسحابة ⚠️";
+                statusBtn.className = "inline-flex items-center justify-center px-3.5 py-2 bg-rose-50 text-rose-900 border border-rose-300 text-xs font-bold rounded-2xl transition gap-1.5 shadow-sm animate-pulse";
+                cloudIcon.className = "fa-solid fa-cloud-slash text-rose-600";
+                if (disconnectedBanner) disconnectedBanner.classList.remove('hidden');
+            }
+            renderScheduleGrid();
+        }
+
+        function saveBookingsState() {
+            if (!isCloudConnected || !firebaseRef) {
+                showToast('تنبيه هام: أنت غير متصل بالسحابة! لا يمكن حفظ أي بيانات بدون اتصال سحابي. ⚠️', 'error');
+                return false;
+            }
+
+            firebaseRef.set(bookings).catch(err => {
+                console.error("Cloud save failed:", err);
+                showToast('فشل حفظ الحجز في السحابة!', 'error');
+            });
+            return true;
+        }
+
+        function getTodaySchoolIndex() {
+            const day = new Date().getDay(); // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+            // إذا كان اليوم هو السبت (6) أو الأحد (0)، فكل أيام الأسبوع (الأحد، الإثنين، الثلاثاء، الأربعاء) تعتبر مستقبلية وليست منقضية
+            if (day === 6 || day === 0) return -1; // -1 يعني لا يوجد يوم منقضي بعد، كل أيام الأسبوع متاحة
+            if (day >= 1 && day <= 3) return day - 1; // الأحد=0, الإثنين=1, الثلا‌ثاء=2, الأربعاء=3
+            return 4; // باقي الأيام
+        }
+
+        function isDayPassed(dayName) {
+            const todayIdx = getTodaySchoolIndex();
+            if (todayIdx === -1) return false; // لا يوجد يوم منقضي يوم السبت أو الأحد
+            const dayIdx = DAY_INDEX_MAP[dayName];
+            return dayIdx < todayIdx;
+        }
+
+        function realOpenAnnouncementModal() {
+            if (announcementRef && isCloudConnected) {
+                announcementRef.once('value').then(snapshot => {
+                    const data = snapshot.val();
+                    document.getElementById('announcement-input-text').value = (data && data.text) ? data.text : '';
+                }).catch(() => {
+                    document.getElementById('announcement-input-text').value = '';
+                });
+            } else {
+                document.getElementById('announcement-input-text').value = '';
+            }
+            document.getElementById('modal-announcement-manager').classList.remove('hidden');
+        }
+
+        function closeAnnouncementModal() {
+            document.getElementById('modal-announcement-manager').classList.add('hidden');
+        }
+
+        function handleAnnouncementSubmit(e) {
+            e.preventDefault();
+            if (!isCloudConnected || !announcementRef) {
+                showToast('عذراً، يجب أن تكون متصلاً بالسحابة لتعديل التنبيهات! ⚠️', 'error');
+                return;
+            }
+
+            const text = document.getElementById('announcement-input-text').value.trim();
+            const annData = {
+                text,
+                updatedAt: new Date().toISOString()
+            };
+
+            renderAnnouncementBanner(annData);
+
+            announcementRef.set(annData).then(() => {
+                closeAnnouncementModal();
+                showToast(text ? 'تم نشر التنبيه بنجاح في السحابة 📌' : 'تم تفريغ الملاحظات', 'success');
+            }).catch(err => {
+                showToast('فشل حفظ التنبيه السحابي!', 'error');
+            });
+        }
+
+        function clearAnnouncement() {
+            document.getElementById('announcement-input-text').value = '';
+            handleAnnouncementSubmit(new Event('submit'));
+        }
+
+        function renderAnnouncementBanner(annData) {
+            const banner = document.getElementById('teacher-announcement-banner');
+            const textElem = document.getElementById('announcement-text-display');
+            const timeElem = document.getElementById('announcement-time-tag');
+
+            if (!annData) {
+                banner.classList.add('hidden');
+                return;
+            }
+
+            let announcementText = '';
+            let updatedAt = null;
+
+            if (typeof annData === 'string') {
+                announcementText = annData;
+            } else if (typeof annData === 'object') {
+                announcementText = annData.text || '';
+                updatedAt = annData.updatedAt || annData.timestamp || null;
+            }
+
+            if (!announcementText.trim()) {
+                banner.classList.add('hidden');
+                return;
+            }
+
+            textElem.innerText = announcementText;
+            if (updatedAt) {
+                try {
+                    const dt = new Date(updatedAt);
+                    timeElem.innerText = `(${dt.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })})`;
+                } catch(e) {
+                    timeElem.innerText = '';
+                }
+            } else {
+                timeElem.innerText = '';
+            }
+
+            banner.classList.remove('hidden');
+        }
+
+        function handleSearchInput() {
+            searchQuery = document.getElementById('search-input').value.trim().toLowerCase();
+            renderScheduleGrid();
+        }
+
+        function updateAllViews() {
+            renderScheduleGrid();
+            renderLeaderboardAndStats();
+            updatePastDaysBanner();
+        }
+
+        function updatePastDaysBanner() {
+            const bannerText = document.getElementById('past-days-info-text');
+            const now = new Date();
+            const isSaturday = now.getDay() === 6;
+
+            if (!isCloudConnected) {
+                bannerText.innerHTML = `<span class="font-black text-rose-600">انذار الاتصال:</span> أنت غير متصل بالسحابة حالياً. الحجز متوقف لحين الاتصال.`;
+            } else if (isSaturday) {
+                bannerText.innerHTML = `اليوم هو <strong class="text-canva-purple font-black">يوم السبت</strong>: الحجز مفتوح الآن (منذ الساعة 12:00 منتصف الليل). يمكنكم حجز الحصص بكل سهولة.`;
+            } else {
+                bannerText.innerHTML = `نظام الحجز الآلي: يفتح الحجز حصرياً يوم السبت الساعة 12:00 صباحاً.`;
+            }
+        }
+
+        function renderScheduleGrid() {
+            const headerRow = document.getElementById('schedule-grid-header');
+            const tbody = document.getElementById('schedule-grid-body');
+            const todayIdx = getTodaySchoolIndex();
+            
+            headerRow.innerHTML = `<th class="p-4 w-36 bg-slate-900 text-slate-300 text-xs font-black border-b border-slate-800">الحصة / اليوم</th>`;
+            
+            DAYS.forEach(day => {
+                const isToday = DAYS[todayIdx] === day;
+                const passed = isDayPassed(day);
+                
+                let dayBgClass = 'bg-slate-900 text-white';
+                let badgeHTML = '';
+
+                if (isToday) {
+                    dayBgClass = 'canva-gradient-bg text-white font-black ring-2 ring-canva-cyan/50';
+                    badgeHTML = '<span class="text-[10px] bg-amber-400 text-slate-900 px-2 py-0.5 rounded-lg font-black shadow-sm">اليوم</span>';
+                } else if (passed) {
+                    dayBgClass = 'bg-slate-800 text-slate-400 font-bold';
+                    badgeHTML = '<span class="text-[10px] bg-slate-700 text-slate-300 px-2 py-0.5 rounded-lg font-bold"><i class="fa-solid fa-lock text-[9px] ml-1"></i>منقضي</span>';
+                }
+
+                const th = document.createElement('th');
+                th.className = `p-4 border-b border-slate-800 ${dayBgClass}`;
+                th.innerHTML = `
+                    <div class="flex items-center justify-center gap-2">
+                        <span class="text-sm">${day}</span>
+                        ${badgeHTML}
+                    </div>
+                `;
+                headerRow.appendChild(th);
+            });
+
+            tbody.innerHTML = '';
+
+            const now = new Date();
+            const isSaturday = now.getDay() === 6;
+
+            PERIODS.forEach(period => {
+                const tr = document.createElement('tr');
+
+                const periodTd = document.createElement('td');
+                periodTd.className = "p-3.5 font-extrabold bg-slate-50 text-slate-800 border-l border-slate-200/80 text-xs";
+                periodTd.innerText = period;
+                tr.appendChild(periodTd);
+
+                DAYS.forEach(day => {
+                    const td = document.createElement('td');
+                    const passed = isDayPassed(day);
+                    
+                    td.className = `p-2.5 h-28 border-b border-l border-slate-200/70 align-top transition ${passed ? 'bg-slate-100/50' : 'hover:bg-slate-50/80'}`;
+
+                    const booking = bookings.find(b => b.day === day && b.period === period);
+
+                    let matchesSearch = true;
+                    if (booking && searchQuery) {
+                        const t = (booking.teacher || '').toLowerCase();
+                        const s = (booking.subject || '').toLowerCase();
+                        const g = (booking.grade || '').toLowerCase();
+                        matchesSearch = t.includes(searchQuery) || s.includes(searchQuery) || g.includes(searchQuery);
+                    }
+
+                    if (booking) {
+                        const cardBgClass = passed 
+                            ? 'bg-slate-800 text-slate-100 border-slate-700 opacity-80' 
+                            : matchesSearch 
+                                ? 'canva-gradient-bg text-white border-canva-purple/30 shadow-canva' 
+                                : 'bg-slate-200 text-slate-500 border-slate-300 opacity-40';
+
+                        td.innerHTML = `
+                            <div class="${cardBgClass} p-3 rounded-2xl shadow-sm h-full flex flex-col justify-between text-right border transition hover:scale-[1.02] duration-200 relative group">
+                                <button onclick="confirmDeleteBooking('${booking.id}')" title="إلغاء هذا الحجز" class="absolute left-2 top-2 w-6 h-6 rounded-full bg-rose-500/80 hover:bg-rose-600 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-[10px] shadow-md">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                                <div>
+                                    <div class="font-black text-xs truncate leading-tight pl-5">${escapeHtml(booking.teacher)}</div>
+                                    <div class="text-[11px] opacity-95 font-semibold truncate mt-1 text-slate-100">${escapeHtml(booking.subject)}</div>
+                                </div>
+                                <div class="text-[10px] opacity-90 flex items-center justify-between border-t border-white/20 pt-1.5 mt-1">
+                                    <span class="font-black bg-black/25 px-2 py-0.5 rounded-lg text-[10px]">${escapeHtml(booking.grade || 'عام')}</span>
+                                    ${passed ? '<span class="text-[9px] font-bold"><i class="fa-solid fa-check"></i> مكتمل</span>' : ''}
+                                </div>
+                            </div>
+                        `;
+                    } else if (!isCloudConnected) {
+                        td.innerHTML = `
+                            <div onclick="showToast('عذراً، يجب الاتصال بالسحابة لإجراء الحجز! ⚠️', 'error')" class="w-full h-full border border-amber-300 bg-amber-50/60 rounded-2xl flex flex-col items-center justify-center text-amber-700 p-2 cursor-not-allowed select-none transition hover:bg-amber-100">
+                                <i class="fa-solid fa-cloud-slash text-sm mb-1 animate-pulse"></i>
+                                <span class="text-[10px] font-bold text-amber-800">غير متصل بالسحابة</span>
+                            </div>
+                        `;
+                    } else if (!isSaturday && !isBookingPaused) {
+                        td.innerHTML = `
+                            <div onclick="showToast('الحجز يفتح تلقائياً يوم السبت الساعة 12:00 صباحاً!', 'error')" class="w-full h-full border border-amber-200 bg-amber-50/40 rounded-2xl flex flex-col items-center justify-center text-amber-600 p-2 cursor-not-allowed select-none transition">
+                                <i class="fa-solid fa-clock text-sm mb-1"></i>
+                                <span class="text-[10px] font-bold">يفتح السبت 12ص</span>
+                            </div>
+                        `;
+                    } else if (isBookingPaused) {
+                        td.innerHTML = `
+                            <div onclick="showToast('عذراً، الحجز موقوف حالياً من الإدارة!', 'error')" class="w-full h-full border border-rose-200 bg-rose-50/50 rounded-2xl flex flex-col items-center justify-center text-rose-500 p-2 cursor-not-allowed select-none transition hover:bg-rose-100/60">
+                                <i class="fa-solid fa-circle-pause text-sm mb-1 animate-pulse"></i>
+                                <span class="text-[10px] font-bold text-rose-600">الحجز موقوف</span>
+                            </div>
+                        `;
+                    } else if (passed) {
+                        td.innerHTML = `
+                            <div class="w-full h-full border border-slate-200 bg-slate-200/40 rounded-2xl flex flex-col items-center justify-center text-slate-400 p-2 cursor-not-allowed select-none">
+                                <i class="fa-solid fa-lock text-xs text-slate-400 mb-1"></i>
+                                <span class="text-[10px] font-bold text-slate-400">انقضى اليوم</span>
+                            </div>
+                        `;
+                    } else {
+                        td.innerHTML = `
+                            <button onclick="openBookingModal('${day}', '${period}')" class="w-full h-full border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center text-slate-400 hover:border-canva-cyan hover:bg-canva-softCyan hover:text-canva-cyan transition-all duration-200 group p-2">
+                                <i class="fa-solid fa-plus text-lg group-hover:scale-125 transition-transform duration-200"></i>
+                                <span class="text-[10px] font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity">حجز الحصة</span>
+                            </button>
+                        `;
+                    }
+
+                    tr.appendChild(td);
+                });
+
+                tbody.appendChild(tr);
+            });
+        }
+
+        function confirmDeleteBooking(bookingId) {
+            requestAdminAccess(() => {
+                if (!isCloudConnected) {
+                    showToast('عذراً، يجب الاتصال بالسحابة لإلغاء الحجز! ⚠️', 'error');
+                    return;
+                }
+                bookings = bookings.filter(b => b.id !== bookingId);
+                saveBookingsState();
+                showToast('تم إلغاء الحجز بنجاح 🗑️', 'info');
+            }, 'حذف هذا الحجز');
+        }
+
+        function openBookingModal(selectedDay = null, selectedPeriod = null) {
+            if (!isCloudConnected) {
+                showToast('تنبيه هام: أنت غير متصل بالسحابة حالياً! لا يمكن إجراء أي حجز بدون اتصال سحابي مباشر. ⚠️', 'error');
+                return;
+            }
+
+            const now = new Date();
+            const isSaturday = now.getDay() === 6;
+
+            if (!isSaturday && !isBookingPaused) {
+                showToast('عذراً! الحجز مغلق حالياً، ويفتح تلقائياً يوم السبت الساعة 12:00 صباحاً.', 'error');
+                return;
+            }
+
+            if (isBookingPaused) {
+                showToast('عذراً، الحجز موقوف حالياً من قبل أخصائي مصادر التعلم!', 'error');
+                return;
+            }
+
+            if (selectedDay && isDayPassed(selectedDay)) {
+                showToast(`عذراً، انقضى يوم (${selectedDay}) ولا يمكن الحجز فيه!`, 'error');
+                return;
+            }
+
+            const activeDays = DAYS.filter(day => !isDayPassed(day));
+
+            if (activeDays.length === 0) {
+                showToast('انتهت أيام الحجز للأسبوع الحالي.', 'error');
+                return;
+            }
+
+            const daySelect = document.getElementById('modal-select-day');
+            
+            daySelect.innerHTML = '';
+            DAYS.forEach(day => {
+                const passed = isDayPassed(day);
+                const opt = document.createElement('option');
+                opt.value = day;
+                
+                if (passed) {
+                    opt.innerText = `${day} (منقضي - مقفل)`;
+                    opt.disabled = true;
+                    opt.className = "text-slate-400 bg-slate-100";
+                } else {
+                    opt.innerText = day;
+                }
+                daySelect.appendChild(opt);
+            });
+
+            if (selectedDay && !isDayPassed(selectedDay)) {
+                daySelect.value = selectedDay;
+            } else {
+                daySelect.value = activeDays[0];
+            }
+
+            populateAvailablePeriods(selectedPeriod);
+            document.getElementById('modal-booking').classList.remove('hidden');
+        }
+
+        function closeBookingModal() {
+            document.getElementById('modal-booking').classList.add('hidden');
+            document.getElementById('form-booking').reset();
+        }
+
+        function onModalDayChange() {
+            populateAvailablePeriods();
+        }
+
+        function populateAvailablePeriods(preselectedPeriod = null) {
+            const selectedDay = document.getElementById('modal-select-day').value;
+
+            if (isDayPassed(selectedDay)) {
+                const periodSelect = document.getElementById('modal-select-period');
+                periodSelect.innerHTML = `<option value="" disabled selected>اليوم المختار منقضي</option>`;
+                return;
+            }
+
+            const periodSelect = document.getElementById('modal-select-period');
+            periodSelect.innerHTML = '';
+
+            let availableCount = 0;
+
+            PERIODS.forEach(period => {
+                const isBooked = bookings.some(b => b.day === selectedDay && b.period === period);
+                
+                if (!isBooked || period === preselectedPeriod) {
+                    const opt = document.createElement('option');
+                    opt.value = period;
+                    opt.innerText = period;
+                    if (period === preselectedPeriod) opt.selected = true;
+                    periodSelect.appendChild(opt);
+                    availableCount++;
+                }
+            });
+
+            if (availableCount === 0) {
+                const opt = document.createElement('option');
+                opt.value = "";
+                opt.innerText = "عذراً، جميع حصص هذا اليوم محجوزة بالكامل";
+                opt.disabled = true;
+                opt.selected = true;
+                periodSelect.appendChild(opt);
+            }
+        }
+
+        function handleBookingFormSubmit(e) {
+            e.preventDefault();
+
+            if (!isCloudConnected) {
+                showToast('تنبيه: أنت غير متصل بالسحابة! يرجى التأكد من اتصال الإنترنت والسحابة أولاً. ⚠️', 'error');
+                return;
+            }
+
+            const now = new Date();
+            const isSaturday = now.getDay() === 6;
+
+            if (!isSaturday && !isBookingPaused) {
+                showToast('عذراً! الحجز يفتح حصرياً يوم السبت الساعة 12:00 صباحاً.', 'error');
+                return;
+            }
+
+            if (isBookingPaused) {
+                showToast('عذراً، الحجز موقوف حالياً بقرار من إدارة المركز!', 'error');
+                return;
+            }
+
+            const day = document.getElementById('modal-select-day').value;
+            const period = document.getElementById('modal-select-period').value;
+            const teacher = document.getElementById('modal-input-teacher').value.trim();
+            const subject = document.getElementById('modal-input-subject').value.trim();
+            const grade = document.getElementById('modal-input-grade').value.trim();
+            const activity = document.getElementById('modal-input-activity').value.trim();
+
+            if (isDayPassed(day)) {
+                showToast('عذراً، انقضى هذا اليوم ولا يمكن الحجز فيه!', 'error');
+                return;
+            }
+
+            if (!period) {
+                showToast('الرجاء اختيار حصة متاحة للحجز', 'error');
+                return;
+            }
+
+            const existing = bookings.find(b => b.day === day && b.period === period);
+            if (existing) {
+                showToast('عذراً، تم حجز هذه الحصة مؤخراً!', 'error');
+                return;
+            }
+
+            const newBooking = {
+                id: Date.now().toString(),
+                day,
+                period,
+                teacher,
+                subject,
+                grade,
+                activity,
+                createdAt: new Date().toISOString()
+            };
+
+            bookings.push(newBooking);
+            const saved = saveBookingsState();
+            if (saved) {
+                // 📩 إرسال الإيميل
+                sendEmailViaAppsScript(newBooking);
+
+                closeBookingModal();
+                showToast(`تم الحجز بنجاح! كسب ${teacher} +1 نقطة 🌟`, 'success');
+            }
+        }
+
+        function renderLeaderboardAndStats() {
+            document.getElementById('stat-total-bookings').innerText = bookings.length;
+
+            const teacherPoints = {};
+            const subjectCounts = {};
+
+            bookings.forEach(b => {
+                teacherPoints[b.teacher] = (teacherPoints[b.teacher] || 0) + 1;
+                subjectCounts[b.subject] = (subjectCounts[b.subject] || 0) + 1;
+            });
+
+            const sortedTeachers = Object.entries(teacherPoints).sort((a, b) => b[1] - a[1]);
+            document.getElementById('stat-top-teacher').innerText = sortedTeachers.length > 0 
+                ? `${sortedTeachers[0][0]} (${sortedTeachers[0][1]} نقاط)` 
+                : '-';
+
+            const sortedSubjects = Object.entries(subjectCounts).sort((a, b) => b[1] - a[1]);
+            document.getElementById('stat-top-subject').innerText = sortedSubjects.length > 0 
+                ? `${sortedSubjects[0][0]} (${sortedSubjects[0][1]} حجز)` 
+                : '-';
+
+            const container = document.getElementById('leaderboard-container');
+            container.innerHTML = '';
+
+            if (sortedTeachers.length === 0) {
+                container.innerHTML = `<p class="text-center text-slate-400 py-8 font-semibold">لا توجد نقاط مسجلة بعد لهذا الأسبوع.</p>`;
+                return;
+            }
+
+            sortedTeachers.forEach(([teacher, points], idx) => {
+                let badgeColor = "bg-slate-200 text-slate-700";
+                let badgeIcon = `${idx + 1}`;
+                
+                if (idx === 0) {
+                    badgeColor = "bg-amber-400 text-slate-900 shadow-sm";
+                    badgeIcon = "🥇 المركز الأول";
+                } else if (idx === 1) {
+                    badgeColor = "bg-slate-300 text-slate-900 shadow-sm";
+                    badgeIcon = "🥈 المركز الثاني";
+                } else if (idx === 2) {
+                    badgeColor = "bg-amber-700 text-white shadow-sm";
+                    badgeIcon = "🥉 المركز الثالث";
+                }
+
+                const div = document.createElement('div');
+                div.className = "flex items-center justify-between p-4 bg-slate-50/80 hover:bg-slate-100/80 rounded-2xl border border-slate-200/70 transition-all duration-200";
+                div.innerHTML = `
+                    <div class="flex items-center gap-3.5">
+                        <span class="px-3 py-1 rounded-xl font-black text-xs ${badgeColor}">
+                            ${badgeIcon}
+                        </span>
+                        <span class="font-black text-slate-900 text-sm">${escapeHtml(teacher)}</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="px-4 py-1.5 bg-canva-softPurple text-canva-purple text-xs font-black rounded-xl border border-canva-purple/20">
+                            ${points} نقطة (${points} حجز)
+                        </span>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function switchTab(tab) {
+            document.getElementById('view-grid').classList.add('hidden');
+            document.getElementById('view-stats').classList.add('hidden');
+
+            document.getElementById('tab-grid-btn').className = "flex-1 md:flex-none py-2.5 px-6 text-xs sm:text-sm font-bold rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 flex items-center justify-center gap-2 transition-all";
+            document.getElementById('tab-stats-btn').className = "flex-1 md:flex-none py-2.5 px-6 text-xs sm:text-sm font-bold rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 flex items-center justify-center gap-2 transition-all";
+
+            if (tab === 'grid') {
+                document.getElementById('view-grid').classList.remove('hidden');
+                document.getElementById('tab-grid-btn').className = "flex-1 md:flex-none py-2.5 px-6 text-xs sm:text-sm font-black rounded-xl text-white canva-gradient-bg shadow-sm flex items-center justify-center gap-2 transition-all";
+            } else if (tab === 'stats') {
+                document.getElementById('view-stats').classList.remove('hidden');
+                document.getElementById('tab-stats-btn').className = "flex-1 md:flex-none py-2.5 px-6 text-xs sm:text-sm font-black rounded-xl text-white canva-gradient-bg shadow-sm flex items-center justify-center gap-2 transition-all";
+            }
+        }
+
+        function executePrint() {
+            window.print();
+        }
+
+        function executeClearSchedule() {
+            if (!isCloudConnected) {
+                showToast('عذراً، يجب الاتصال بالسحابة لتفريغ الجدول! ⚠️', 'error');
+                return;
+            }
+            bookings = [];
+            saveBookingsState();
+            showToast('تم تفريغ الجدول بالكامل وبدء أسبوع حجز جديد 🌟', 'success');
+        }
+
+        function realOpenDriveArchiveModal() {
+            document.getElementById('modal-drive-archive').classList.remove('hidden');
+        }
+
+        function closeDriveArchiveModal() {
+            document.getElementById('modal-drive-archive').classList.add('hidden');
+        }
+
+        function downloadJsonArchive() {
+            if (bookings.length === 0) {
+                showToast('لا توجد حجوزات بالأرشيف للتصدير', 'error');
+                return;
+            }
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(bookings, null, 2));
+            const dlAnchor = document.createElement('a');
+            dlAnchor.setAttribute("href", dataStr);
+            dlAnchor.setAttribute("download", `أرشيف_حجوزات_المصادر_${new Date().toISOString().slice(0,10)}.json`);
+            document.body.appendChild(dlAnchor);
+            dlAnchor.click();
+            dlAnchor.remove();
+            showToast('تم تنزيل ملف الأرشيف JSON بنجاح', 'success');
+        }
+
+        function exportToCSV() {
+            if (bookings.length === 0) {
+                showToast('لا توجد حجوزات للتصدير', 'error');
+                return;
+            }
+            let csv = '\uFEFFاليوم,الحصة,اسم المعلم,المادة,الصف,النشاط\n';
+            bookings.forEach(b => {
+                csv += `"${b.day}","${b.period}","${b.teacher}","${b.subject}","${b.grade || ''}","${b.activity || ''}"\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `جدول_حجوزات_المصادر_${new Date().toISOString().slice(0,10)}.csv`;
+            link.click();
+            showToast('تم تصدير ملف Excel (CSV) بنجاح', 'success');
+        }
+
+        function realOpenCloudModal() {
+            document.getElementById('cloud-url-input').value = localStorage.getItem('lrc_firebase_url') || DEFAULT_FIREBASE_URL;
+            document.getElementById('modal-cloud-config').classList.remove('hidden');
+        }
+
+        function closeCloudModal() {
+            document.getElementById('modal-cloud-config').classList.add('hidden');
+        }
+
+        function saveCloudConfig() {
+            const url = document.getElementById('cloud-url-input').value.trim();
+            if (url) {
+                localStorage.setItem('lrc_firebase_url', url);
+            } else {
+                localStorage.removeItem('lrc_firebase_url');
+            }
+            closeCloudModal();
+            location.reload();
+        }
+
+        function realOpenSchoolSettingsModal() {
+            document.getElementById('setting-school-name').value = schoolSettings.schoolName || '';
+            document.getElementById('setting-specialist-name').value = schoolSettings.specialistName || '';
+            document.getElementById('setting-principal-name').value = schoolSettings.principalName || '';
+            document.getElementById('modal-school-settings').classList.remove('hidden');
+        }
+
+        function closeSchoolSettingsModal() {
+            document.getElementById('modal-school-settings').classList.add('hidden');
+        }
+
+        function saveSchoolSettings() {
+            if (!isCloudConnected) {
+                showToast('عذراً، ينبغي الاتصال بالسحابة لحفظ بيانات المدرسة! ⚠️', 'error');
+                return;
+            }
+
+            schoolSettings.schoolName = document.getElementById('setting-school-name').value.trim() || 'مركز مصادر التعلم';
+            schoolSettings.specialistName = document.getElementById('setting-specialist-name').value.trim() || '-';
+            schoolSettings.principalName = document.getElementById('setting-principal-name').value.trim() || '-';
+
+            if (schoolSettingsRef) {
+                schoolSettingsRef.set(schoolSettings);
+            }
+
+            applySchoolSettingsUI();
+            closeSchoolSettingsModal();
+            showToast('تم حفظ بيانات المدرسة بنجاح في السحابة', 'success');
+        }
+
+        function loadSchoolSettings() {
+            applySchoolSettingsUI();
+        }
+
+        function applySchoolSettingsUI() {
+            const schoolTag = document.getElementById('header-school-tag');
+            if (schoolTag) schoolTag.innerText = schoolSettings.schoolName;
+
+            const printSchool = document.getElementById('print-school-name');
+            if (printSchool) printSchool.innerText = schoolSettings.schoolName;
+
+            const printSpec = document.getElementById('print-specialist-name');
+            if (printSpec) printSpec.innerText = schoolSettings.specialistName;
+
+            const printPrinc = document.getElementById('print-principal-name');
+            if (printPrinc) printPrinc.innerText = schoolSettings.principalName;
+            
+            const footerSpecialist = document.getElementById('footer-specialist-name');
+            if (footerSpecialist) footerSpecialist.innerText = schoolSettings.specialistName || '-';
+
+            const footerSchool = document.getElementById('footer-school-name');
+            if (footerSchool) footerSchool.innerText = schoolSettings.schoolName || 'مركز مصادر التعلم';
+        }
+
+        function showToast(msg, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let bgClass = "bg-slate-900 text-white";
+            if (type === 'success') bgClass = "bg-emerald-600 text-white";
+            if (type === 'error') bgClass = "bg-rose-600 text-white";
+
+            toast.className = `${bgClass} px-5 py-3.5 rounded-2xl shadow-canva text-xs font-black flex items-center gap-2.5 transform transition-all duration-300 translate-y-2 pointer-events-auto border border-white/10`;
+            toast.innerHTML = `
+                <i class="fa-solid ${type === 'success' ? 'fa-circle-check text-emerald-300' : type === 'error' ? 'fa-circle-xmark text-rose-300' : 'fa-circle-info text-canva-cyan'} text-base"></i>
+                <span>${msg}</span>
+            `;
+
+            container.appendChild(toast);
+            setTimeout(() => { toast.classList.remove('translate-y-2'); }, 10);
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3200);
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
